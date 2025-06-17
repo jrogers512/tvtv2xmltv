@@ -2,7 +2,21 @@
 require_once("config.php");
 
 // Get Program Details
-$programId = $_SERVER['QUERY_STRING'];
+if (php_sapi_name() === 'cli') {
+    // CLI mode: use first argument
+    $programId = isset($argv[1]) ? $argv[1] : '';
+} else {
+    // Web mode: use QUERY_STRING
+    $programId = isset($_SERVER['QUERY_STRING']) ? $_SERVER['QUERY_STRING'] : '';
+}
+
+if ($programId === '') {
+    fwrite(STDERR, "No program ID provided.\n");
+    exit(1);
+}
+
+// Include lib.php for helpers
+require_once("lib.php");
 
 // Check to see if .json file for program already exists in the data folder
 $programDir = $dataFolder."/program/".substr($programId, 0, 8);
@@ -15,7 +29,7 @@ if ( file_exists($jsonFile) )
 else
 {
     $program_url = "https://www.tvtv.us/api/v1/programs/".$programId;
-    $json = file_get_contents( $program_url );
+    $json = fetch_url( $program_url );
     $program_data = json_decode( $json, true );
 
     if (strlen($json))
@@ -25,10 +39,15 @@ else
         file_put_contents($jsonFile, $json);
     }
 }
-$image = $program_data["seriesEpisode"]["image"];
-if (!strlen($image))
+$image = '';
+if (is_array($program_data) && isset($program_data["seriesEpisode"]["image"])) {
+    $image = $program_data["seriesEpisode"]["image"];
+}
+if (!strlen($image) && is_array($program_data) && isset($program_data["image"])) {
     $image = $program_data["image"];
+}
 
 header('Content-Type: image/jpeg');
-echo file_get_contents("https://www.tvtv.us".$image);
+echo fetch_url("https://www.tvtv.us".$image);
+?>
 

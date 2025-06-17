@@ -24,6 +24,9 @@ require_once("config.php");
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Include lib.php for helpers
+require_once("lib.php");
+
 // Setup filename for download
 $fileDate = date ( "Ymd" );
 header("Content-disposition: attachment; filename=xmltv.".$fileDate.".xml");
@@ -40,8 +43,14 @@ echo("<tv date=\"".$startTime."\" source-info-url=\"".$url."\" source-info-name=
 
 // GET lineup data
 $lineup_url = "https://www.tvtv.us/api/v1/lineup/".$lineUpID."/channels";
-$json = file_get_contents( $lineup_url );
-$lineup_data = json_decode( $json, true );
+$options = [
+    "http" => [
+        "header" => "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3\r\n"
+    ]
+];
+$context = stream_context_create($options);
+$json = fetch_url($lineup_url, false, $context);
+$lineup_data = json_decode($json, true);
 file_put_contents($dataFolder."/channels.json", $json);
 
 $all_channels = [];
@@ -74,7 +83,7 @@ for ( $day = 0; $day < $days; $day++)
     for ($i = 0; $i <= count($all_channels); $i += 20) {
         $channels = array_slice($all_channels, $i, 20);
         $listing_url = "https://www.tvtv.us/api/v1/lineup/".$lineUpID."/grid/".$startTime."/".$endTime."/".implode(',', $channels);
-        $json = file_get_contents( $listing_url );
+        $json = fetch_url( $listing_url );
         $listing_data = array_merge($listing_data, json_decode( $json, true ));
         file_put_contents($dataFolder."/guide.".$i.".json", $json);
     }
@@ -101,8 +110,9 @@ for ( $day = 0; $day < $days; $day++)
             $tStart->add(new DateInterval('PT'.$program['runTime'].'M'));
             $endTime = $tStart->format("YmdHis O");
 
-            $description = "";
-            $image = 'http://'.$_SERVER['HTTP_HOST'];
+           $description = "";
+           $host = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : 'localhost';
+            $image = 'http://' . $host;
             //$image .= str_replace(basename($_SERVER['SCRIPT_NAME']), "details.php?".$programId, $_SERVER['REQUEST_URI']);
             $image .= "/xmltv/details.php?".$programId;
 
